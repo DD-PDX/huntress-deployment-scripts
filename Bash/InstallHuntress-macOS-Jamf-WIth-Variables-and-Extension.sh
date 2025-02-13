@@ -34,28 +34,45 @@
 # For more details, see our KB article
 # https://support.huntress.io/hc/en-us/articles/25013857741331-Critical-Steps-for-Complete-macOS-EDR-Deployment
 
-
+# # # # # # # # # # # # # # # # #
+# Modified for DaVinci Jamf Pro #
+# # # # # # # # # # # # # # # # #
+#
+# Script now requires that the Account Key and Organization Key are set as parameters in Jamf.
+#
+# Account Key: Parameter 4
+#
+# Organization Key: Parameter 5
+#
+# RMM String: Parameter 6
+#
+# System Extension True/False String: Parameter 7
+#
+# 
+#
+# 2025.2.13
+#
 ##############################################################################
 ## Begin user modified variables
 ##############################################################################
 
 
 # Replace __ACCOUNT_KEY__ with your account secret key (from your Huntress portal's "download agent" section)
-defaultAccountKey="__ACCOUNT_KEY__"
+defaultAccountKey="$4"
 
 # If you have a preferred "placeholder" organization name for Mac agents, you can set that below.
 # Otherwise, provide the appropriate Organization Key when running the script in your RMM.
-defaultOrgKey="Mac Agents"
+defaultOrgKey="$5"
 
 # Put the name of your RMM below. This helps our support team understand which RMM tools
 # are being used to deploy the Huntress macOS Agent. Simply replace the text in quotes below.
-rmm="Unspecified RMM"
+rmm="$6"
 
 # Option to install the system extension after the Huntress Agent is installed. In order for this to happen
 # without security prompts on the endpoint, permissions need to be applied to the endpoint by an MDM before this script
 # is run. See the following KB article for instructions:
 # https://support.huntress.io/hc/en-us/articles/21286543756947-Instructions-for-the-MDM-Configuration-for-macOS
-install_system_extension=false
+install_system_extension=$7
 
 ##############################################################################
 ## Do not modify anything below this line
