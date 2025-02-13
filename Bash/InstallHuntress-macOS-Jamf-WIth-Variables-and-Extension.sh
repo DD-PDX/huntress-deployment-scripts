@@ -48,7 +48,7 @@
 #
 # System Extension True/False String: Parameter 7
 #
-# 
+# Tags: Parameter 8
 #
 # 2025.2.13
 #
@@ -72,7 +72,10 @@ rmm="$6"
 # without security prompts on the endpoint, permissions need to be applied to the endpoint by an MDM before this script
 # is run. See the following KB article for instructions:
 # https://support.huntress.io/hc/en-us/articles/21286543756947-Instructions-for-the-MDM-Configuration-for-macOS
-install_system_extension=$7
+install_system_extension="$7"
+
+# Experimental tag parameter
+tags="$8"
 
 ##############################################################################
 ## Do not modify anything below this line
