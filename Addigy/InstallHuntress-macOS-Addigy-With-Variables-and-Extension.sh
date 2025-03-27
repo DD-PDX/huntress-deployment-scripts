@@ -72,7 +72,7 @@ defaultOrgKey="$huntressOrganizationKey"
 install_system_extension=true
 
 # Tags
-tags="$8"
+tags="main-office,macOS,Addigy,Automa"
 
 ##############################################################################
 ## In many multitenant environments, the Top-Level Addigy Policy name
