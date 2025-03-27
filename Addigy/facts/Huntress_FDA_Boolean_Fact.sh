@@ -12,7 +12,7 @@
 
 out=$(sqlite3 -line "/Library/Application Support/com.apple.TCC/TCC.db" "SELECT * FROM access where client == 'com.huntress.sysext';" | grep service | awk '{print $3}')
 if [[ $out != "kTCCServiceSystemPolicyAllFiles" ]]; then
-	echo "second one failed"
+# 	echo "second one failed"
     echo "False"
     exit
 fi
