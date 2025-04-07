@@ -39,7 +39,7 @@
 # Modified for DaVinci Automa #
 # # # # # # # # # # # # # # # #
 #
-# Script now requires that the Account Key and Organization Key are set as variables in Addigy.
+# Script now requires that the Account Key, Organization Key, and tags are set as variables in Addigy.
 #
 # Account Key: $huntressAccountKey
 # # Set globally but can be overridden in policies.
@@ -47,9 +47,12 @@
 # Organization Key: $huntressOrganizationKey
 # # Set at top level organization policy, or in similarly scoped smart policy.
 #
+# Tags: $huntressTags
+# Set globally but can be overridden in policies.
+#
 # Script uses tag options copied from generic MDM script.
 #
-# 2025.3.27
+# 2025.4.7
 #
 #####################################################################################
 ##
@@ -72,7 +75,7 @@ defaultOrgKey="$huntressOrganizationKey"
 install_system_extension=true
 
 # Tags
-tags="main-office,macOS,Addigy,Automa"
+tags="$huntressTags"
 
 ##############################################################################
 ## In many multitenant environments, the Top-Level Addigy Policy name
