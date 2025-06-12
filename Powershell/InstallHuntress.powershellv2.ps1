@@ -37,10 +37,13 @@ param (
   [switch]$uninstall
 )
 
-
-##############################################################################
-## Begin user modified variables
-##############################################################################
+##############################################################################################################
+##              ---====>> DO NOT REMOVE OR COMMENT OUT ANYTHING IN THIS SCRIPT! <<====---
+## Modifications should only be done to the right side of the assignment statements, and in this section only.
+## Do not modify any variable names, change variable types, or introduce commenting characters
+##
+##                            Begin user modified variables section
+##############################################################################################################
 
 # Replace __ACCOUNT_KEY__ with your account secret key (from your Huntress portal's "download agent" section)
 $AccountKey = "__ACCOUNT_KEY__"
@@ -48,7 +51,7 @@ $AccountKey = "__ACCOUNT_KEY__"
 # Replace __ORGANIZATION_KEY__ with a unique identifier for the organization/client (your choice of naming scheme)
 $OrganizationKey = "__ORGANIZATION_KEY__"
 
-# Replace __TAGS__ with one or more tags, separated by commas (this field is optional!)
+# Replace __TAGS__ with one or more tags, separated by commas (leave the next line unmodified if you don't want to use Tags)
 $TagsKey = "__TAGS__"
 
 # Set to "Continue" to enable verbose logging.
@@ -65,11 +68,11 @@ $estimatedSpaceNeeded = 200111222
 
 
 ##############################################################################
-## Do not modify anything below this line
+##              Do not modify anything below this line
 ##############################################################################
 
 # These are used by the Huntress support team when troubleshooting.
-$ScriptVersion = "Version 2, major revision 8, 2025 Apr 18"
+$ScriptVersion = "Version 2, major revision 8, 2025 May 20"
 $ScriptType = "PowerShell"
 
 # variables used throughout this script
@@ -84,6 +87,8 @@ $SupportMessage             = "Please send the error message to support@huntress
 $HuntressAgentServiceName   = "HuntressAgent"
 $HuntressUpdaterServiceName = "HuntressUpdater"
 $HuntressEDRServiceName     = "HuntressRio"
+$Vendor                     = "Huntress"
+$ScriptInfoName             = "HuntressPoShInstaller.json"
 
 # attempt to use a more central temporary location for the log file rather than the installing users folder
 if (Test-Path (Join-Path $env:SystemRoot "\temp")) {
@@ -98,7 +103,6 @@ Set-StrictMode -Version Latest
 # Pull various software versions for logging purposes
 $PoShVersion   = $PsVersionTable.PsVersion.Major
 $KernelVersion = [System.Environment]::OSVersion.Version
-$BuildVersion  = [System.Environment]::OSVersion.Version.Build
 
 # Check kernel version to download the appropriate installer for the OS version
 # kernel 6.1+ can use the regular Huntress agent, kernel versions 6.0 and lower require the legacy installer
@@ -865,16 +869,6 @@ function logInfo {
     # Log OS details
     LogMessage $(systeminfo)
 
-    #LogMessage "Host name: '$env:computerName'"
-    try {  $os = (get-WMiObject -computername $env:computername -Class win32_operatingSystem).caption.Trim()
-    } catch {
-        LogMessage "WMI issues discovered (computer name query), attempting to fix the repository"
-        winmgmt -verifyrepository
-        $os = (get-itemproperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion" -Name ProductName).ProductName
-    }
-    #LogMessage "Host OS: '$os'"
-    #LogMessage "Host Build Version: $($BuildVersion)"
-
     LogMessage "Host Kernel Version: $($KernelVersion)"
     LogMessage "Detected Architecture (Windows 32/64 bit): '$($WindowsArchitecture)'"
 
@@ -981,6 +975,70 @@ function fixServices {
     }
 }
 
+function Get-ScriptInfoPath {
+    $results = getAgentPath
+    return Join-Path -Path $results -ChildPath $ScriptInfoName
+}
+
+# Get the hash of this currently running PowerShell script file
+function Get-Sha256Hash {
+    try {
+        # Get the hash of this file
+        return (Get-FileHash -Path $PSCommandPath -Algorithm SHA256).Hash
+    } catch {
+        # catch failures in this function and return an empty hash
+        $ErrorMessage = $_.Exception.Message
+        return "", "Unable to retrieve script hash: $ErrorMessage"
+    }
+}
+
+# Get the operation we running for this script
+function Get-ScriptOperation {
+    $operation = "Install"
+    if ($reregister -eq $true) {
+        $operation = "Reregister"
+    } elseif ($reinstall -eq $true) {
+        $operation = "Reinstall"
+    }
+
+    return $operation
+}
+
+function Write-InstallScriptInfo {
+    $hold = $ErrorActionPreference
+    $ErrorActionPreference = "Stop"
+
+    try {
+        if ($uninstall) {
+            # No need to track installation on an uninstall
+            LogMessage "No script information will be saved for uninstall"
+            return
+        }
+
+        [array]$hashResult = Get-Sha256Hash
+        if ($hashResult.Count -eq 2) {
+            LogMessage $hashResult[1]
+        }
+
+        $info = [PSCustomObject]@{
+            vendor = $Vendor
+            sha256 = $hashResult[0]
+            operation = Get-ScriptOperation
+        }
+
+        $path = Get-ScriptInfoPath
+        $json = $info | ConvertTo-Json -Compress
+
+        # We make a "best-effort" attempt to write to the file
+        Set-Content -Path $path -Value $json
+    }
+    catch {
+        $ErrorMessage = $_.Exception.Message
+        LogMessage "Unable to save installation script information: $ErrorMessage"
+    }
+
+    $ErrorActionPreference = $hold
+}
 
 #########################################################################################
 #                                  begin main function                                  #
@@ -1070,8 +1128,11 @@ function main () {
 
 try {
     main
+    Write-InstallScriptInfo
 } catch {
     $ErrorMessage = $_.Exception.Message
     LogMessage $ErrorMessage
     copyLogAndExit
 }
+
+LogMessage "Script Complete"
