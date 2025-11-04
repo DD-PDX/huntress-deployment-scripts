@@ -72,7 +72,7 @@ $estimatedSpaceNeeded = 200111222
 ##############################################################################
 
 # These are used by the Huntress support team when troubleshooting.
-$ScriptVersion = "Version 2, major revision 8, 2025 May 20"
+$ScriptVersion = "Version 2, major revision 8, 2025 Oct 13"
 $ScriptType = "PowerShell"
 
 # variables used throughout this script
@@ -192,7 +192,7 @@ function Test-Parameters {
         throw $ScriptFailed + " " + $err
         exit 1
     } elseif ($AccountKey.length -ne 32) {
-        $err = "Invalid AccountKey specified (incorrect length)! Suggest double checking the key was copy/pasted in its entirety"
+        $err = "Invalid AccountKey specified (incorrect length)! Suggest double checking the key was copy/pasted in its entirety. Length = $($AccountKey.length)   expected value = 32"
         LogMessage $err
         throw $ScriptFailed + " " + $err
         exit 1
@@ -434,7 +434,7 @@ function Test-Installation {
     $didAgentRegister = $false
     for ($i = 0; $i -le 40; $i++) {
         if (Test-Path "$($HuntressDirectory)\HuntressAgent.log") {
-            $linesFromLog = Get-Content "$($HuntressDirectory)\HuntressAgent.log" | Select-Object -first 4
+            $linesFromLog = Get-Content "$($HuntressDirectory)\HuntressAgent.log" | Select-Object -last 6
             ForEach ($line in $linesFromLog) {
                 if ($line -like "*registered agent*") {
                     LogMessage "Agent successfully registered in $($i/4) seconds"
@@ -446,12 +446,13 @@ function Test-Installation {
         }
         Start-Sleep -Milliseconds 250
     }
+    # If the agent didn't register, log the tail of HuntressAgent.log so Support can see the reason registration failed
     if ( ! $didAgentRegister) {
         $err = "WARNING: It does not appear the agent has successfully registered. Check 3rd party AV exclusion lists to ensure Huntress is excluded."
         LogMessage ($err + $SupportMessage)
         if (Test-Path "$($HuntressDirectory)\HuntressAgent.log") {
-            $linesFromLog = Get-Content "$($HuntressDirectory)\HuntressAgent.log" | Select-Object -first 4
-            LogMessage "Last 4 lines of HuntressAgent.log:"
+            $linesFromLog = Get-Content "$($HuntressDirectory)\HuntressAgent.log" | Select-Object -last 8
+            LogMessage "Newest 8 lines of HuntressAgent.log:"
             ForEach ($line in $linesFromLog) {
                 LogMessage $line
             }
@@ -963,8 +964,9 @@ function copyLogAndExit {
 # Sometimes previous installs can be stuck with services in the Disabled state, this function attempts to set the state to Automatic.
 # Services in the Disabled state cannot be manually started, and TP will stop partners from fixing this themselves. AB
 function fixServices {
+    $servicesOnInstall = @($HuntressAgentServiceName, $HuntressUpdaterServiceName)
     # Ensure the services are installed before repairing the state
-    foreach ($svc in $services) {
+    foreach ($svc in $servicesOnInstall) {
         if (  (Confirm-ServiceExists($svc))) {
             # repairing service state
             if ( $(Get-Service $svc).StartType -ne "automatic") {
@@ -1048,6 +1050,13 @@ function main () {
     logInfo
     LogMessage "Script flags:  Reregister=$reregister  Reinstall=$reinstall  Uninstall=$uninstall "
 
+    if ($AccountKey.length -lt 8) {
+        LogMessage "Invalid key length, found $($AccountKey.length) (should be 32). Account key value: $AccountKey"
+    } else {
+        $masked = $AccountKey.Substring(0,4) + "************************" + $AccountKey.SubString($AccountKey.length-4,4)
+        LogMessage "Pre-trim variables: account key=[$masked]  org key=[$OrganizationKey]   (brackets are in place to show trailing/leading spaces)"
+    }
+
     # if run with the uninstall flag, exit so we don't reinstall the agent after
     if ($uninstall) {
         LogMessage "Uninstalling Huntress agent"
@@ -1085,7 +1094,7 @@ function main () {
 
     # Hide most of the account key in the logs, keeping the front and tail end for troubleshooting
     if ($AccountKey -ne "__Account_Key__") {
-        $masked = $AccountKey.Substring(0,4) + "************************" + $AccountKey.SubString(28,4)
+        $masked = $AccountKey.Substring(0,4) + "************************" + $AccountKey.SubString($AccountKey.length-4,4)
         LogMessage "AccountKey: '$masked'"
         LogMessage "OrganizationKey: '$OrganizationKey'"
         LogMessage "Tags: $($Tags)"
@@ -1093,7 +1102,7 @@ function main () {
 
     # reregister > reinstall > uninstall > install (in decreasing order of impact)
     # reregister = reinstall + delete registry keys
-    # reinstall  = install + stop Huntress service
+    # reinstall  = stop Huntress service + reinstall
     if ($reregister) {
         LogMessage "Re-register agent: '$reregister'"
         if ( !(Confirm-ServiceExists($HuntressAgentServiceName))) {
@@ -1106,15 +1115,18 @@ function main () {
             $err = "Script was run w/ reinstall flag but there's nothing to reinstall. Attempting to clean remnants, then install the agent fresh."
             LogMessage "$err"
             uninstallHuntress
-            copyLogAndExit
         }
         StopHuntressServices
     } else {
         LogMessage "Checking for HuntressAgent install..."
         $agentPath = getAgentPath
         if ( (Test-Path $agentPath) -eq $true) {
-            LogMessage "The Huntress Agent is already installed in $agentPath. Exiting with no changes. Suggest using -reregister or -reinstall flags"
-            copyLogAndExit
+            $assetCount = (Get-ChildItem -Path $agentPath -File | Measure-Object).count
+            # to avoid issues with a single file blocking installs, only exit script if multiple files are found and script not run with -reregister or -reinstall
+            if ($assetCount -gt 1) {
+              LogMessage "The Huntress Agent is already installed in $agentPath. Exiting with no changes. Suggest using -reregister or -reinstall flags. Asset count = $assetCount"
+              copyLogAndExit
+            }
         }
     }
 
